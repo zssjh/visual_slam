@@ -83,7 +83,6 @@ void OpticalFlow::TrackImage() {
     cv::Mat cur = CurrentFrame_.current_frame_image.clone();
     cv::cvtColor(last, last,  cv::COLOR_GRAY2RGB);
     cv::cvtColor(cur, cur,  cv::COLOR_GRAY2RGB);
-    cout << "OpticalFlow: " << object_size << endl;
     for (int i = 0; i < object_size; ++i) {
         if (prev_pts_[i].size() > 0) {
             vector<uchar> status;
