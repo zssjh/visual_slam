@@ -70,7 +70,7 @@ src/Initializer.cc
 src/Viewer.cc
 src/Object.cpp
 src/Fundamental.cpp
-)
+        src/OpticalFlow.cpp include/OpticalFlow.h)
 
 target_link_libraries(${PROJECT_NAME}
 ${OpenCV_LIBS}

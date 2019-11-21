@@ -108,8 +108,11 @@ public:
                                        map<size_t, double>& mappoints_distance_to_center_map);
     void GetFrameObject(Map* mpMap);
     bool IsInDynamicBox(const int& i);
+    void ComputeBoxCenter(vector<cv::Point2f>& box_center_vec);
     bool IsInBox(const int& i, int& box_id);
+    bool IsInTrackBox(const int& i, int& box_id);
     bool DrawBox(const vector<bool>& is_dynamic, cv::Mat& image);
+    bool DrawBoxPredict(const vector<cv::Point2f>& box_center);
     cv::Mat GetMtw() { return mtcw; }
     cv::Mat GetMRw() { return mRcw; }
     cv::Mat skew(const cv::Mat& t) {
@@ -126,9 +129,12 @@ public:
     }
 
 public:
+    map<int, int> points_for_optical_flow;
+    map<int, int> points_optical_flow_succes;
     map<int, int> matches_out_box;
     map<int, std::pair<int, int>> matches_in_box;
     vector<vector<int>> points_in_box;
+    vector<vector<int>> tracking_object_box_;
     vector<std::shared_ptr<Object>> objects_cur_;
     cv::Mat current_frame_image;
     map<unsigned int, unsigned int> mappoint_mapping_to_object_;

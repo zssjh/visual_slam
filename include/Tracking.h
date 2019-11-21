@@ -37,6 +37,7 @@
 #include "Initializer.h"
 #include "MapDrawer.h"
 #include "System.h"
+#include "OpticalFlow.h"
 
 #include <mutex>
 
@@ -76,7 +77,8 @@ public:
 
 
 public:
-
+    //! tracking points in box
+    OpticalFlow LK_tracker;
     // Tracking states
     enum eTrackingState{
         SYSTEM_NOT_READY=-1,

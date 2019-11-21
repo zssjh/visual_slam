@@ -30,12 +30,10 @@
 #include "Converter.h"
 #include "Map.h"
 #include "Initializer.h"
-
 #include "Optimizer.h"
 #include "PnPsolver.h"
 
 #include <iostream>
-
 #include <mutex>
 #include <sstream>
 #include <include/Fundamental.h>
@@ -131,21 +129,18 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
     cout << "- Initial Fast Threshold: " << fIniThFAST << endl;
     cout << "- Minimum Fast Threshold: " << fMinThFAST << endl;
 
-    if(sensor==System::STEREO || sensor==System::RGBD)
-    {
+    if (sensor==System::STEREO || sensor==System::RGBD) {
         mThDepth = mbf*(float)fSettings["ThDepth"]/fx;
         cout << endl << "Depth Threshold (Close/Far Points): " << mThDepth << endl;
     }
 
-    if(sensor==System::RGBD)
-    {
+    if (sensor==System::RGBD) {
         mDepthMapFactor = fSettings["DepthMapFactor"];
         if(fabs(mDepthMapFactor)<1e-5)
             mDepthMapFactor=1;
         else
             mDepthMapFactor = 1.0f/mDepthMapFactor;
     }
-
 }
 
 void Tracking::SetLocalMapper(LocalMapping *pLocalMapper)
@@ -202,6 +197,7 @@ cv::Mat Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat &imRe
 
     cout << "ID:" << mCurrentFrame.mnId << endl;
     Track();
+    /*
     cout << "当前帧物体：" << mCurrentFrame.objects_cur_.size() << endl;
     for (int i = 0; i < mCurrentFrame.objects_cur_.size(); ++i) {
         cout << mCurrentFrame.objects_cur_[i]->mnId_ << endl;
@@ -211,7 +207,7 @@ cv::Mat Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat &imRe
     for (int j = 0; j < mpMap->objects_in_map_.size(); ++j) {
         if (mpMap->objects_in_map_[j])
             cout << mpMap->objects_in_map_[j]->mnId_ << endl;
-    }
+    }*/
     return mCurrentFrame.mTcw.clone();
 }
 
@@ -760,7 +756,6 @@ bool Tracking::TrackReferenceKeyFrame() {
     mCurrentFrame.mvpMapPoints = vpMapPointMatches;
     mCurrentFrame.SetPose(mLastFrame.mTcw);
 
-
     Optimizer::PoseOptimization(&mCurrentFrame);
 
     // Discard outliers
@@ -1014,22 +1009,67 @@ bool Tracking::TrackWithMotionModel()
     UpdateLastFrame();
 
     mCurrentFrame.SetPose(mVelocity*mLastFrame.mTcw);
-
     fill(mCurrentFrame.mvpMapPoints.begin(),mCurrentFrame.mvpMapPoints.end(),static_cast<MapPoint*>(NULL));
+
+    if (true) { //! if use optical flow
+        if (mCurrentFrame.mnId == 2 || mCurrentFrame.mnId % 15 == 0) {
+            for (int i = 0; i < mCurrentFrame.objects_cur_.size(); ++i) {
+                vector<int> box = mCurrentFrame.objects_cur_[i]->bounding_box_;
+                mCurrentFrame.tracking_object_box_.push_back(box);
+            }
+        } else {
+            for (int i = 0; i < mCurrentFrame.N; ++i) {
+                int box_id;
+                if (mCurrentFrame.IsInTrackBox(i, box_id)) {
+                    mCurrentFrame.points_for_optical_flow.emplace(i, box_id);
+                }
+            }
+
+            if (LK_tracker.init_) {
+                LK_tracker.Init(mCurrentFrame, mCurrentFrame.points_for_optical_flow);
+                LK_tracker.init_ = false;
+            } else {
+                LK_tracker.CurrentFrame_ = mCurrentFrame;
+                LK_tracker.TrackImage();
+
+                for (int j = 0; j < mLastFrame.tracking_object_box_.size(); ++j) {
+                    vector<int> box = mLastFrame.tracking_object_box_[j];
+                    int x_last = (box[1] + box[0]) / 2;
+                    int y_last = (box[3] + box[2]) / 2;
+                    float x_cur = x_last + LK_tracker.box_center_motion[j].x;
+                    float y_cur = y_last + LK_tracker.box_center_motion[j].y;
+                    int width = box[1] - box[0];
+                    int height = box[3] - box[2];
+
+                    vector<int> box_;
+                    int left = x_cur - width / 2;
+                    int right = x_cur + width / 2;
+                    int top = y_cur - height / 2;
+                    int bottom = y_cur + height / 2;
+                    box_.push_back(left);
+                    box_.push_back(right);
+                    box_.push_back(top);
+                    box_.push_back(bottom);
+
+                    mCurrentFrame.tracking_object_box_.push_back(box_);
+                }
+                LK_tracker.Init(mCurrentFrame, mCurrentFrame.points_for_optical_flow);
+            }
+        }
+    }
 
     // Project points seen in previous frame
     int th;
-    if(mSensor!=System::STEREO)
-        th=15;
+    if (mSensor != System::STEREO)
+        th = 15;
     else
-        th=7;
-    int nmatches = matcher.SearchByProjection(mCurrentFrame,mLastFrame,th,mSensor==System::MONOCULAR);
+        th = 7;
+    int nmatches = matcher.SearchByProjection(mCurrentFrame, mLastFrame, th, mSensor == System::MONOCULAR);
 
     // If few matches, uses a wider window search
-    if(nmatches<20)
-    {
-        fill(mCurrentFrame.mvpMapPoints.begin(),mCurrentFrame.mvpMapPoints.end(),static_cast<MapPoint*>(NULL));
-        nmatches = matcher.SearchByProjection(mCurrentFrame,mLastFrame,2*th,mSensor==System::MONOCULAR);
+    if (nmatches<20) {
+        fill(mCurrentFrame.mvpMapPoints.begin(), mCurrentFrame.mvpMapPoints.end(), static_cast<MapPoint*>(NULL));
+        nmatches = matcher.SearchByProjection(mCurrentFrame, mLastFrame, 2*th, mSensor==System::MONOCULAR);
     }
 
     if(nmatches<20)
@@ -1081,13 +1121,10 @@ bool Tracking::TrackWithMotionModel()
     return nmatchesMap>=10;
 }
 
-bool Tracking::TrackLocalMap()
-{
+bool Tracking::TrackLocalMap() {
     // We have an estimation of the camera pose and some map points tracked in the frame.
     // We retrieve the local map and try to find matches to points in the local map.
-
     UpdateLocalMap();
-
     SearchLocalPoints();
 
     // Optimize Pose
@@ -1095,10 +1132,8 @@ bool Tracking::TrackLocalMap()
     mnMatchesInliers = 0;
 
     // Update MapPoints Statistics
-    for(int i=0; i<mCurrentFrame.N; i++)
-    {
-        if(mCurrentFrame.mvpMapPoints[i])
-        {
+    for (int i = 0; i < mCurrentFrame.N; i++) {
+        if (mCurrentFrame.mvpMapPoints[i]) {
             if (!mCurrentFrame.mvbOutlier[i]) {
                 mCurrentFrame.mvpMapPoints[i]->IncreaseFound();
                 if (!mbOnlyTracking) {
@@ -1108,9 +1143,8 @@ bool Tracking::TrackLocalMap()
                 else
                     mnMatchesInliers++;
             }
-            else if(mSensor==System::STEREO )//|| mCurrentFrame.IsInDynamicBox(i)
+            else if(mSensor == System::STEREO )//|| mCurrentFrame.IsInDynamicBox(i)
                 mCurrentFrame.mvpMapPoints[i] = static_cast<MapPoint*>(NULL);
-
         }
     }
 
@@ -1125,8 +1159,7 @@ bool Tracking::TrackLocalMap()
         return true;
 }
 
-bool Tracking::NeedNewKeyFrame()
-{
+bool Tracking::NeedNewKeyFrame() {
     if(mbOnlyTracking)
         return false;
 
