@@ -159,7 +159,7 @@ void Tracking::SetViewer(Viewer *pViewer)
 }
 
 cv::Mat Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat &imRectRight,
-                                  const double &timestamp, const vector<std::pair<vector<int>, unsigned int>>& bounding_box)
+                                  const double &timestamp, const vector<std::pair<vector<double>, unsigned int>>& bounding_box)
 {
     mImGray = imRectLeft;
     cv::Mat imGrayRight = imRectRight;
@@ -997,7 +997,88 @@ void Tracking::JudgeDynamicObject(){
     }
     cv::imshow("current frame", outImg);
     cv::waitKey(0);//1e3 / 30
+}
 
+bool CropImage(const int& width, const int& height, cv::Rect2d& box) {
+    if (box.x < 0) {
+        box.width += box.x;
+        box.x = 0;
+    } 
+    if (box.x + box.width > width) {
+        box.width = width - box.x;
+    }
+    if (box.y < 0) {
+        box.height += box.y;
+        box.y = 0;
+    } 
+    if (box.y + box.height > height) {
+        box.height = height - box.y;
+    }
+    return (box.x >=0 && box.x <= width && box.y >= 0 && box.y <= height
+    && box.x + box.width <= width && box.y + box.height <= height);
+}
+
+void Tracking::MultiScaleTemplateMatch(const vector<vector<double>>& tracking_object_box) {
+    cv::Mat image_last = mLastFrame.current_frame_image.clone();
+    cv::Mat image_cur = mCurrentFrame.current_frame_image.clone();
+    for (int i = 0; i < tracking_object_box.size(); ++i) {
+        double left = tracking_object_box[i][0];
+        double right = tracking_object_box[i][1];
+        double top = tracking_object_box[i][2];
+        double bottom = tracking_object_box[i][3];
+        double width = right - left;
+        double height = bottom - top;
+        cv::Rect2d rect_template(left, top, width, height);
+        if (!CropImage(mLastFrame.current_frame_image.cols, mLastFrame.current_frame_image.rows, rect_template))
+            continue;
+        cv::Mat image_template = image_last(rect_template);
+//        cv::imshow("image_template", image_template);
+        double margin_x = 0.3 * width;
+        double margin_y = 0.3 * height;
+        cv::Rect2d rect_search(left - margin_x, top - margin_y, width + 2 * margin_x, height + 2 * margin_y);
+        if (!CropImage(mLastFrame.current_frame_image.cols, mLastFrame.current_frame_image.rows, rect_search))
+            continue;
+        cv::Mat image_search = image_cur(rect_search);
+//        cv::imshow("image_search", image_search);
+
+        double scale = 0.8;
+        double maxScore = 0;
+        double bestScale;
+        cv::Point bestVal;
+        for (int j = 0; j < 10; ++j) {
+            cv::Mat image_search_scale;
+            cv::Size s(image_search.cols * scale, image_search.rows * scale);
+            cv::resize(image_search, image_search_scale, s);
+//            cv::imshow("image_search_scale", image_search_scale);
+//            cv::waitKey(0);
+            cv::Mat dstImg;
+            cv::matchTemplate(image_search_scale, image_template, dstImg, 3);
+            cv::Point minPoint, maxPoint;
+            double minVal = 0;
+            double maxVal = 0;
+            cv::minMaxLoc(dstImg, &minVal, &maxVal, &minPoint, &maxPoint);
+            if (maxVal > maxScore) {
+                maxScore = maxVal;
+                bestScale = scale;
+                bestVal = maxPoint;
+            }
+            scale += 0.05;
+        }
+
+        cout << "score: " << maxScore << endl;
+        //! 缩放后的图像上显示box
+        cv::Point2f box_left_top(bestVal.x / bestScale, bestVal.y / bestScale);
+        double width_scale = image_template.cols / bestScale;
+        double height_scale = image_template.rows / bestScale;
+        cv::Rect2d box_scale(rect_search.x + box_left_top.x, rect_search.y + box_left_top.y, width_scale, height_scale);
+        vector<double> box;
+        box.push_back(rect_search.x + box_left_top.x);
+        box.push_back(rect_search.x + box_left_top.x + width_scale);
+        box.push_back(rect_search.y + box_left_top.y);
+        box.push_back(rect_search.y + box_left_top.y + height_scale);
+        mCurrentFrame.tracking_object_box_.push_back(box);
+//        cv::rectangle(mCurrentFrame.current_frame_image, box_scale, cv::Scalar(0, 0, 255));
+    }
 }
 
 bool Tracking::TrackWithMotionModel()
@@ -1012,49 +1093,52 @@ bool Tracking::TrackWithMotionModel()
     fill(mCurrentFrame.mvpMapPoints.begin(),mCurrentFrame.mvpMapPoints.end(),static_cast<MapPoint*>(NULL));
 
     if (true) { //! if use optical flow
-        if (mCurrentFrame.mnId == 2 || mCurrentFrame.mnId % 15 == 0) {
+        if (mCurrentFrame.mnId == 2 || mCurrentFrame.mnId % 10 == 0) {
             for (int i = 0; i < mCurrentFrame.objects_cur_.size(); ++i) {
-                vector<int> box = mCurrentFrame.objects_cur_[i]->bounding_box_;
+                vector<double> box = mCurrentFrame.objects_cur_[i]->bounding_box_;
                 mCurrentFrame.tracking_object_box_.push_back(box);
             }
-        } else {
             for (int i = 0; i < mCurrentFrame.N; ++i) {
                 int box_id;
                 if (mCurrentFrame.IsInTrackBox(i, box_id)) {
                     mCurrentFrame.points_for_optical_flow.emplace(i, box_id);
                 }
             }
-
-            if (LK_tracker.init_) {
-                LK_tracker.Init(mCurrentFrame, mCurrentFrame.points_for_optical_flow);
-                LK_tracker.init_ = false;
-            } else {
-                LK_tracker.CurrentFrame_ = mCurrentFrame;
-                LK_tracker.TrackImage();
-
-                for (int j = 0; j < mLastFrame.tracking_object_box_.size(); ++j) {
-                    vector<int> box = mLastFrame.tracking_object_box_[j];
-                    int x_last = (box[1] + box[0]) / 2;
-                    int y_last = (box[3] + box[2]) / 2;
-                    float x_cur = x_last + LK_tracker.box_center_motion[j].x;
-                    float y_cur = y_last + LK_tracker.box_center_motion[j].y;
-                    int width = box[1] - box[0];
-                    int height = box[3] - box[2];
-
-                    vector<int> box_;
-                    int left = x_cur - width / 2;
-                    int right = x_cur + width / 2;
-                    int top = y_cur - height / 2;
-                    int bottom = y_cur + height / 2;
-                    box_.push_back(left);
-                    box_.push_back(right);
-                    box_.push_back(top);
-                    box_.push_back(bottom);
-
-                    mCurrentFrame.tracking_object_box_.push_back(box_);
-                }
-                LK_tracker.Init(mCurrentFrame, mCurrentFrame.points_for_optical_flow);
+            LK_tracker.Init(mCurrentFrame, mCurrentFrame.points_for_optical_flow);
+        } else {
+            LK_tracker.CurrentFrame_ = mCurrentFrame;
+            LK_tracker.TrackImage();
+            vector<vector<double>> tracking_object_box;
+            for (int j = 0; j < mLastFrame.tracking_object_box_.size(); ++j) {
+                vector<double> box = mLastFrame.tracking_object_box_[j];
+                double x_last = (box[1] + box[0]) / 2;
+                double y_last = (box[3] + box[2]) / 2;
+                double x_cur = x_last + LK_tracker.box_center_motion[j].x;
+                double y_cur = y_last + LK_tracker.box_center_motion[j].y;
+                mCurrentFrame.predict_box_center_vec.push_back(cv::Point2f(x_cur, y_cur));
+                double width = box[1] - box[0];
+                double height = box[3] - box[2];
+                if (width < 20 || height < 20)
+                    continue;
+                vector<double> box_;
+                double left = x_cur - width / 2;
+                double right = x_cur + width / 2;
+                double top = y_cur - height / 2;
+                double bottom = y_cur + height / 2;
+                box_.push_back(left);
+                box_.push_back(right);
+                box_.push_back(top);
+                box_.push_back(bottom);
+                tracking_object_box.push_back(box_);
             }
+            for (int i = 0; i < mCurrentFrame.N; ++i) {
+                int box_id;
+                if (mCurrentFrame.IsInTrackBox(i, box_id)) {
+                    mCurrentFrame.points_for_optical_flow.emplace(i, box_id);
+                }
+            }
+            MultiScaleTemplateMatch(tracking_object_box);
+            LK_tracker.Init(mCurrentFrame, mCurrentFrame.points_for_optical_flow);
         }
     }
 

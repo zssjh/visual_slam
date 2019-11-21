@@ -36,7 +36,7 @@ namespace ORB_SLAM2 {
         bool dynamic_;
         bool First_obj_;
         bool current_;
-        vector<int> bounding_box_;
+        vector<double> bounding_box_;
         struct KeyPointComp {
             bool operator() (const std::pair<cv::KeyPoint, unsigned int>& p1,
                     const std::pair<cv::KeyPoint, unsigned int>& p2) const{

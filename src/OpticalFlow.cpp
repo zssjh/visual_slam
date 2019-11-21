@@ -83,6 +83,7 @@ void OpticalFlow::TrackImage() {
     cv::Mat cur = CurrentFrame_.current_frame_image.clone();
     cv::cvtColor(last, last,  cv::COLOR_GRAY2RGB);
     cv::cvtColor(cur, cur,  cv::COLOR_GRAY2RGB);
+    cout << "OpticalFlow: " << object_size << endl;
     for (int i = 0; i < object_size; ++i) {
         if (prev_pts_[i].size() > 0) {
             vector<uchar> status;
@@ -121,13 +122,15 @@ void OpticalFlow::TrackImage() {
                     points++;
                     cv::line(cur, prev_pts_[i][j], cur_pts_[i][j], cv::Scalar(0, 255, 0));
                     AddPoint(cur_pts_[i][j] - prev_pts_[i][j], box_center_motion[i]);
+//                    cout << "optical: " << cur_pts_[i][j] - prev_pts_[i][j] << " " <<  box_center_motion[i] << endl;
                 }
             }
-            AvgPoint(points, box_center_motion[i]);
-            cout << "box motion: " <<  box_center_motion[i] << endl;
+            if (points != 0) {
+                AvgPoint(points, box_center_motion[i]);
+//                cout << "optical all: " << box_center_motion[i] << endl;
+            }
         }
     }
-    cv::imshow("cur", cur);
 }
 }
 

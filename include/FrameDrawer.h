@@ -62,7 +62,7 @@ protected:
     vector<cv::KeyPoint> mvIniKeys;
     vector<int> mvIniMatches;
     int mState;
-    vector<vector<int>> detect_result;
+    vector<vector<double>> detect_result;
 
     Map* mpMap;
 

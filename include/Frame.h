@@ -52,7 +52,7 @@ public:
     Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeStamp,
           ORBextractor* extractorLeft, ORBextractor* extractorRight, ORBVocabulary* voc,
           cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth,
-          const vector<std::pair<vector<int>, unsigned int>>& bounding_box);
+          const vector<std::pair<vector<double>, unsigned int>>& bounding_box);
 
     // Constructor for RGB-D cameras.
     Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeStamp, ORBextractor* extractor,
@@ -129,12 +129,13 @@ public:
     }
 
 public:
+    vector<cv::Point2f> predict_box_center_vec;
     map<int, int> points_for_optical_flow;
     map<int, int> points_optical_flow_succes;
     map<int, int> matches_out_box;
     map<int, std::pair<int, int>> matches_in_box;
     vector<vector<int>> points_in_box;
-    vector<vector<int>> tracking_object_box_;
+    vector<vector<double>> tracking_object_box_;
     vector<std::shared_ptr<Object>> objects_cur_;
     cv::Mat current_frame_image;
     map<unsigned int, unsigned int> mappoint_mapping_to_object_;

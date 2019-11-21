@@ -31,7 +31,7 @@ using namespace std;
 void LoadImages(const string &strPathToSequence, vector<string> &vstrImageLeft,
                 vector<string> &vstrImageRight, vector<double> &vTimestamps);
 
-void LoadBoundingBox(const string& strPathToDetectionResult, vector<std::pair<vector<int>, unsigned int>>& detect_result);
+void LoadBoundingBox(const string& strPathToDetectionResult, vector<std::pair<vector<double>, unsigned int>>& detect_result);
 
 int main(int argc, char **argv) {
     if(argc != 5) {
@@ -75,7 +75,7 @@ int main(int argc, char **argv) {
                  << string(vstrImageLeft[ni]) << endl;
             return 1;
         }
-        vector<std::pair<vector<int>, unsigned int>> detection_box;
+        vector<std::pair<vector<double>, unsigned int>> detection_box;
         LoadBoundingBox(string(argv[4]) + to_string(ni+1) + ".txt", detection_box);
 
 #ifdef COMPILEDWITHC11
@@ -158,14 +158,14 @@ void LoadImages(const string &strPathToSequence, vector<string> &vstrImageLeft,
     }
 }
 
-void LoadBoundingBox(const string& strPathToDetectionResult, vector<std::pair<vector<int>, unsigned int>>& detect_result) {
+void LoadBoundingBox(const string& strPathToDetectionResult, vector<std::pair<vector<double>, unsigned int>>& detect_result) {
     ifstream infile;
     infile.open(strPathToDetectionResult);
     if (!infile.is_open()) {
         cout<<"yolo_detection file open fail"<<endl;
         exit(233);
     }
-    vector<int> row;
+    vector<double> row;
     string line;
     while (getline(infile, line)) {
         int sum = 0, num_bit = 0;

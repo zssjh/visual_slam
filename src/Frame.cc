@@ -59,7 +59,7 @@ namespace ORB_SLAM2 {
     Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeStamp,
                  ORBextractor* extractorLeft, ORBextractor* extractorRight, ORBVocabulary* voc,
                  cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth,
-                 const vector<std::pair<vector<int>, unsigned int>>& bounding_box)
+                 const vector<std::pair<vector<double>, unsigned int>>& bounding_box)
             : mpORBvocabulary(voc),mpORBextractorLeft(extractorLeft),mpORBextractorRight(extractorRight),
               mTimeStamp(timeStamp), mK(K.clone()),mDistCoef(distCoef.clone()), mbf(bf), mThDepth(thDepth),
               mpReferenceKF(static_cast<KeyFrame*>(NULL)), current_frame_image(imLeft) {
@@ -723,21 +723,21 @@ namespace ORB_SLAM2 {
     void Frame::ComputeCentroid2D(const int& i, cv::Mat& centroid,
                                   map<size_t, double>& mappoints_distance_to_center_map) {
         int points_compute_center_num = 0;
-        vector<int> bbox = objects_cur_[i]->bounding_box_;
-        int box_width = bbox[1] - bbox[0];
-        int box_height = bbox[3] - bbox[2];
+        vector<double> bbox = objects_cur_[i]->bounding_box_;
+        double box_width = bbox[1] - bbox[0];
+        double box_height = bbox[3] - bbox[2];
         bool compute_center = true;
         int step = 5;
         while (compute_center && step > 1) {
             step--;
-            int center_margin_width = box_width / step;
-            int center_margin_height = box_height /step;
+            double center_margin_width = box_width / step;
+            double center_margin_height = box_height /step;
             cv::Point2f box_center((bbox[0] + bbox[1]) / 2., (bbox[2] + bbox[3])/ 2.);
             for (int j = 0; j < points_in_box[i].size(); ++j) {
                 int keypoint_index = points_in_box[i][j];
                 cv::Point2f keypoint = mvKeysUn[keypoint_index].pt;
-                float diff_x = fabs(box_center.x - keypoint.x);
-                float diff_y = fabs(box_center.y - keypoint.y);
+                double diff_x = fabs(box_center.x - keypoint.x);
+                double diff_y = fabs(box_center.y - keypoint.y);
                 if (fabs(diff_x) < center_margin_width && fabs(diff_y) < center_margin_height) {
                     MapPoint* mp = mvpMapPoints[keypoint_index];
                     if (mp) {
@@ -774,9 +774,9 @@ namespace ORB_SLAM2 {
                 return v1.first < v2.first;
             }
         };
-        vector<int> bbox = objects_cur_[i]->bounding_box_;
-        int box_center_x = 0.5 * (bbox[1] + bbox[0]);
-        int box_center_y = 0.5 * (bbox[3] + bbox[2]);
+        vector<double> bbox = objects_cur_[i]->bounding_box_;
+        double box_center_x = 0.5 * (bbox[1] + bbox[0]);
+        double box_center_y = 0.5 * (bbox[3] + bbox[2]);
         cv::Point2f center_point(box_center_x, box_center_y);
         multiset<std::pair<float, int>, MapPointDepthCompare> mappoints;
         for (int j = 0; j < points_in_box[i].size(); ++j) {
@@ -852,7 +852,6 @@ namespace ORB_SLAM2 {
 
             objects_cur_[k]->Pos_ = object_pos;
             for (auto iter = mappoints_distance_to_center_map.begin(); iter != mappoints_distance_to_center_map.end(); ++iter) {
-//                cout << (*iter).second << endl;
                 if ((*iter).second > 2.)
                     continue;
                 int map_point_id = (*iter).first;
@@ -924,11 +923,11 @@ namespace ORB_SLAM2 {
 
     void Frame::ComputeBoxCenter(vector<cv::Point2f>& box_center_vec) {
         for (int i = 0; i < objects_cur_.size(); ++i) {
-            vector<int> box = objects_cur_[i]->bounding_box_;
-            int left = box[0];
-            int right = box[1];
-            int top = box[2];
-            int bottom = box[3];
+            vector<double> box = objects_cur_[i]->bounding_box_;
+            double left = box[0];
+            double right = box[1];
+            double top = box[2];
+            double bottom = box[3];
             cv::Point2f center((left + right) / 2., (top + bottom) / 2.);
             box_center_vec.push_back(center);
         }
@@ -940,11 +939,11 @@ namespace ORB_SLAM2 {
         float kp_v = kp.pt.y;
         bool in_box = false;
         for (int k = 0; k < objects_cur_.size(); ++k) {
-            vector<int> box = objects_cur_[k]->bounding_box_;
-            int left = box[0];
-            int right = box[1];
-            int top = box[2];
-            int bottom = box[3];
+            vector<double> box = objects_cur_[k]->bounding_box_;
+            double left = box[0];
+            double right = box[1];
+            double top = box[2];
+            double bottom = box[3];
             if (kp_u > left - 2 && kp_u < right + 2
                 && kp_v > top - 2 && kp_v < bottom + 2) {
                 in_box = true;
@@ -961,11 +960,11 @@ namespace ORB_SLAM2 {
         float kp_v = kp.pt.y;
         bool in_box = false;
         for (int k = 0; k < tracking_object_box_.size(); ++k) {
-            vector<int> box = tracking_object_box_[k];
-            int left = box[0];
-            int right = box[1];
-            int top = box[2];
-            int bottom = box[3];
+            vector<double> box = tracking_object_box_[k];
+            double left = box[0];
+            double right = box[1];
+            double top = box[2];
+            double bottom = box[3];
             if (kp_u > left - 2 && kp_u < right + 2
                 && kp_v > top - 2 && kp_v < bottom + 2) {
                 in_box = true;
@@ -978,11 +977,11 @@ namespace ORB_SLAM2 {
 
     bool Frame::DrawBox(const vector<bool>& is_dynamic, cv::Mat& image) {
         for (int j = 0; j < objects_cur_.size(); ++j) {
-            vector<int> box = objects_cur_[j]->bounding_box_;
-            int left = box[0];
-            int right = box[1];
-            int top = box[2];
-            int bottom = box[3];
+            vector<double> box = objects_cur_[j]->bounding_box_;
+            double left = box[0];
+            double right = box[1];
+            double top = box[2];
+            double bottom = box[3];
             cv::Point2f p1(left, top);
             cv::Point2f p2(right, bottom);
             cv::Point2f p1_text(left, top - 20);
@@ -997,10 +996,8 @@ namespace ORB_SLAM2 {
 //                cv::rectangle(image, p1, p2, cv::Scalar(0, 255, 0));
             }
         }
-
-        cout << tracking_object_box_.size() << endl;
         for (int i = 0; i < tracking_object_box_.size(); ++i) {
-            vector<int> box = tracking_object_box_[i];
+            vector<double> box = tracking_object_box_[i];
             cv::Point2f p1(box[0], box[2]);
             cv::Point2f p2(box[1], box[3]);
             cv::rectangle(image, p1, p2, cv::Scalar(0, 255, 0));

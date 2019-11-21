@@ -114,7 +114,7 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
 }
 
 cv::Mat System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight,
-                            const double &timestamp, const vector<std::pair<vector<int>, unsigned int>>& bounding_box)
+                            const double &timestamp, const vector<std::pair<vector<double>, unsigned int>>& bounding_box)
 {
     if(mSensor!=STEREO)
     {
