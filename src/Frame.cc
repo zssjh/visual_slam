@@ -48,7 +48,8 @@ namespace ORB_SLAM2 {
              mvScaleFactors(frame.mvScaleFactors), mvInvScaleFactors(frame.mvInvScaleFactors),
              mvLevelSigma2(frame.mvLevelSigma2), mvInvLevelSigma2(frame.mvInvLevelSigma2),
              objects_cur_(frame.objects_cur_), tracking_object_box_(frame.tracking_object_box_),
-             mappoint_mapping_to_object_(frame.mappoint_mapping_to_object_ ), current_frame_image(frame.current_frame_image){
+             mappoint_mapping_to_object_(frame.mappoint_mapping_to_object_ ), current_frame_image(frame.current_frame_image),
+             read_detect_state_(frame.read_detect_state_), optical_flow_image_(frame.optical_flow_image_){
         for(int i=0; i<FRAME_GRID_COLS; i++)
             for(int j=0; j<FRAME_GRID_ROWS; j++)
                 mGrid[i][j] = frame.mGrid[i][j];
@@ -62,9 +63,8 @@ namespace ORB_SLAM2 {
                  const vector<std::pair<vector<double>, unsigned int>>& bounding_box)
             : mpORBvocabulary(voc),mpORBextractorLeft(extractorLeft),mpORBextractorRight(extractorRight),
               mTimeStamp(timeStamp), mK(K.clone()),mDistCoef(distCoef.clone()), mbf(bf), mThDepth(thDepth),
-              mpReferenceKF(static_cast<KeyFrame*>(NULL)), current_frame_image(imLeft) {
+              mpReferenceKF(static_cast<KeyFrame*>(NULL)), current_frame_image(imLeft), read_detect_state_(false) {
         mnId=nNextId++;
-
         // remove similar box
         for (int i = 0; i < bounding_box.size(); ++i) {
             bool single = true;

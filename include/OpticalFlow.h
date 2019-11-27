@@ -22,6 +22,7 @@ public:
     void AvgPoint(const int& n, cv::Point2f& p);
 
 public:
+    cv::Mat optical_image_;
     bool init_;
     unsigned int points_size;
     unsigned int object_size;

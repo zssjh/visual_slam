@@ -15,7 +15,6 @@ void OpticalFlow::Init(const Frame& LastFrame, const map<int, int>& points_and_b
     cur_pts_.resize(object_size);
     box_center_motion.clear();
     box_center_motion.resize(object_size, cv::Point2f(0, 0));
-
     for (auto iter = points_and_box_id.begin(); iter != points_and_box_id.end(); iter++) {
         int point_id = iter->first;
         int box_id = iter->second;
@@ -79,10 +78,8 @@ void OpticalFlow::AvgPoint(const int& n, cv::Point2f& p) {
 }
 
 void OpticalFlow::TrackImage() {
-    cv::Mat last = LastFrame_.current_frame_image.clone();
-    cv::Mat cur = CurrentFrame_.current_frame_image.clone();
-    cv::cvtColor(last, last,  cv::COLOR_GRAY2RGB);
-    cv::cvtColor(cur, cur,  cv::COLOR_GRAY2RGB);
+    optical_image_ = CurrentFrame_.current_frame_image.clone();
+    cv::cvtColor(optical_image_, optical_image_,  cv::COLOR_GRAY2RGB);
     for (int i = 0; i < object_size; ++i) {
         if (prev_pts_[i].size() > 0) {
             vector<uchar> status;
@@ -117,16 +114,16 @@ void OpticalFlow::TrackImage() {
             int points = 0;
             for (int j = 0; j < prev_pts_[i].size(); ++j) {
                 if (status[j] == 1) {
-                    cv::circle(cur, prev_pts_[i][j], 3, cv::Scalar(0, 0, 255));
+                    cv::circle(optical_image_, cur_pts_[i][j], 3, cv::Scalar(0, 0, 255));
                     points++;
-                    cv::line(cur, prev_pts_[i][j], cur_pts_[i][j], cv::Scalar(0, 255, 0));
+                    cv::line(optical_image_, prev_pts_[i][j], cur_pts_[i][j], cv::Scalar(0, 255, 0));
                     AddPoint(cur_pts_[i][j] - prev_pts_[i][j], box_center_motion[i]);
-//                    cout << "optical: " << cur_pts_[i][j] - prev_pts_[i][j] << " " <<  box_center_motion[i] << endl;
                 }
             }
-            if (points != 0) {
+            if (points > 3 || LastFrame_.read_detect_state_) {
                 AvgPoint(points, box_center_motion[i]);
-//                cout << "optical all: " << box_center_motion[i] << endl;
+            } else {
+                box_center_motion[i] = LastFrame_.tracking_object_motion_[i];
             }
         }
     }
