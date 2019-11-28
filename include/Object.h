@@ -27,7 +27,7 @@ namespace ORB_SLAM2 {
         };
         int mnId_;
         unsigned int last_add_Id;
-        unsigned int class_id_;
+        int class_id_;
         unsigned int observe_times_;
         unsigned int add_frame_id;
         cv::Mat Pos_;

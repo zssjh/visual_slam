@@ -4,7 +4,7 @@
 #include "OpticalFlow.h"
 
 namespace ORB_SLAM2{
-void OpticalFlow::Init(const Frame& LastFrame, const map<int, int>& points_and_box_id) {
+void OpticalFlow::Init(const Frame& LastFrame, const map<int, std::pair<int, int>>& points_and_box_id) {
     LastFrame_ = LastFrame;
     object_size = LastFrame.tracking_object_box_.size();
     prev_pts_.clear();
@@ -15,13 +15,16 @@ void OpticalFlow::Init(const Frame& LastFrame, const map<int, int>& points_and_b
     cur_pts_.resize(object_size);
     box_center_motion.clear();
     box_center_motion.resize(object_size, cv::Point2f(0, 0));
+    box_class_.clear();
+    box_class_.resize(object_size, -1);
     valid_tracker_.clear();
     valid_tracker_.resize(object_size, true);
     optical_flow_points_pairs_.clear();
     optical_flow_points_pairs_.resize(object_size);
     for (auto iter = points_and_box_id.begin(); iter != points_and_box_id.end(); iter++) {
         int point_id = iter->first;
-        int box_id = iter->second;
+        int box_id = iter->second.first;
+        box_class_[box_id] = iter->second.second;
         prev_pts_[box_id].push_back(LastFrame.mvKeysUn[point_id].pt);
     }
     hasPrediction_ = false;

@@ -187,8 +187,8 @@ void FrameDrawer::Update(Tracking *pTracker)
     pTracker->mImGray.copyTo(mIm);
     mvCurrentKeys = pTracker->mCurrentFrame.mvKeys;
     detect_result.clear();
-    for (int j = 0; j < pTracker->mCurrentFrame.objects_cur_.size(); ++j) {
-        detect_result.push_back(pTracker->mCurrentFrame.objects_cur_[j]->bounding_box_);
+    for (int j = 0; j < pTracker->mCurrentFrame.objects_cur_detect_.size(); ++j) {
+        detect_result.push_back(pTracker->mCurrentFrame.objects_cur_detect_[j]->bounding_box_);
     }
     N = mvCurrentKeys.size();
     mvbVO = vector<bool>(N,false);

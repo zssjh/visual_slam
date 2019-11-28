@@ -1336,7 +1336,7 @@ int ORBmatcher::SearchByProjection(Frame &CurrentFrame, const Frame &LastFrame, 
     const bool bForward = tlc.at<float>(2)>CurrentFrame.mb && !bMono;
     const bool bBackward = -tlc.at<float>(2)>CurrentFrame.mb && !bMono;
 
-    int object_cur = CurrentFrame.objects_cur_.size();
+    int object_cur = CurrentFrame.objects_cur_detect_.size();
     CurrentFrame.points_in_box.resize(object_cur);
 
     for (int i = 0; i < LastFrame.N; i++) {

@@ -58,7 +58,7 @@ public:
 
     // Preprocess the input and call Track(). Extract features and performs stereo matching.
     cv::Mat GrabImageStereo(const cv::Mat &imRectLeft,const cv::Mat &imRectRight,
-                            const double &timestamp, const vector<std::pair<vector<double>, unsigned int>>& bounding_box);
+                            const double &timestamp, const vector<std::pair<vector<double>, int>>& bounding_box);
     cv::Mat GrabImageRGBD(const cv::Mat &imRGB,const cv::Mat &imD, const double &timestamp);
     cv::Mat GrabImageMonocular(const cv::Mat &im, const double &timestamp);
 
@@ -76,7 +76,7 @@ public:
     void RemovePointsBackground();
     void UseOpticalFlowTrack();
     void JudgeDynamicObject();
-    void MultiScaleTemplateMatch(const vector<vector<double>>& tracking_object_box);
+    void MultiScaleTemplateMatch(const vector<vector<double>>& tracking_object_box, const vector<int>& tracking_box_class);
 
 public:
     //! tracking points in box

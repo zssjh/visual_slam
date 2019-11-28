@@ -159,7 +159,7 @@ void Tracking::SetViewer(Viewer *pViewer)
 }
 
 cv::Mat Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat &imRectRight,
-                                  const double &timestamp, const vector<std::pair<vector<double>, unsigned int>>& bounding_box)
+                                  const double &timestamp, const vector<std::pair<vector<double>, int>>& bounding_box)
 {
     mImGray = imRectLeft;
     cv::Mat imGrayRight = imRectRight;
@@ -1005,7 +1005,7 @@ void Tracking::JudgeDynamicObject(){
         cv::circle(outImg, cv::Point2f(u_val, image_cur.rows + v_val), 5, cv::Scalar(0, 200, 255), -1);
     }
     cv::imshow("current frame", image_cur);
-    cv::waitKey(0);//1e3 / 30
+    cv::waitKey(1e3 / 30);//1e3 / 30
 }
 
 bool CropImage(const int& width, const int& height, cv::Rect2d& box) {
@@ -1055,7 +1055,7 @@ bool CropImageAndTemplate(const int& width, const int& height, cv::Rect2d& box, 
         return (box_valid && box_template_valid);
     }
 
-void Tracking::MultiScaleTemplateMatch(const vector<vector<double>>& tracking_object_box) {
+void Tracking::MultiScaleTemplateMatch(const vector<vector<double>>& tracking_object_box, const vector<int>& tracking_object_box_class) {
     cv::Mat image_last = mLastFrame.current_frame_image.clone();
     cv::Mat image_cur = mCurrentFrame.current_frame_image.clone();
     cv::cvtColor(image_last, image_last,  cv::COLOR_GRAY2RGB);
@@ -1074,7 +1074,7 @@ void Tracking::MultiScaleTemplateMatch(const vector<vector<double>>& tracking_ob
         double width = right - left;
         double height = bottom - top;
         cv::Rect2d rect_predict(left, top, width, height);
-        if (mCurrentFrame.mnId > 1110) {
+        if (mCurrentFrame.mnId > 11110) {
             if (rect_predict.x > 0 && rect_predict.y > 0 &&
                 rect_predict.x + rect_predict.width < mLastFrame.current_frame_image.cols &&
                 rect_predict.y + rect_predict.height < mLastFrame.current_frame_image.rows) {
@@ -1127,7 +1127,7 @@ void Tracking::MultiScaleTemplateMatch(const vector<vector<double>>& tracking_ob
 
         if (maxScore < 0.87)
             continue;
-        if (mCurrentFrame.mnId > 1110) {
+        if (mCurrentFrame.mnId > 11110) {
             cv::imshow("temp", image_template);
             cv::imshow("search", image_search);
             cv::waitKey(0);
@@ -1150,6 +1150,7 @@ void Tracking::MultiScaleTemplateMatch(const vector<vector<double>>& tracking_ob
         double center_y_cur = rect_search.y + box_left_top.y + height_scale / 2.;
         cv::Point2f motion(center_x_cur - center_x_last, center_y_cur - center_y_last);
         mCurrentFrame.tracking_object_box_.push_back(box);
+        mCurrentFrame.tracking_object_box_class_.push_back(tracking_object_box_class[i]);
         mCurrentFrame.tracking_object_motion_.push_back(motion);
         //! 包括框大小通过验证的光流跟踪的点
         for (int k = 0; k < mCurrentFrame.optical_flow_points_pairs_[i].size(); ++k) {
@@ -1167,11 +1168,14 @@ struct  MapPointDepthCompare {
 void Tracking::RemovePointsBackground() {
     size_t box_size = mCurrentFrame.tracking_object_box_.size();
     vector<vector<int>> points_in_track_box;
+    vector<int> points_in_track_box_class;
     points_in_track_box.resize(box_size);
+    points_in_track_box_class.resize(box_size);
     for (size_t i = 0u; i < mCurrentFrame.N; ++i) {
-        int box_id;
-        if (mCurrentFrame.IsInTrackBox(i, box_id)) {
+        int box_id, class_id;
+        if (mCurrentFrame.IsInTrackBox(i, box_id, class_id)) {
             points_in_track_box[box_id].push_back(i);
+            points_in_track_box_class[box_id] = class_id;
         }
     }
 
@@ -1233,22 +1237,24 @@ void Tracking::RemovePointsBackground() {
                 float distance_each_mappoint = fabs(pos.at<float>(2) - centroid.at<float>(2));
                 if (distance_each_mappoint > 5.)
                     continue;
-                mCurrentFrame.points_for_optical_flow.emplace(keypoint_index, l);
+                mCurrentFrame.points_for_optical_flow.emplace(keypoint_index, make_pair(l, points_in_track_box_class[l]));
             }
         }
     }
 }
+
 void Tracking::UseOpticalFlowTrack() {
     if (mCurrentFrame.mnId == 2 || mCurrentFrame.mnId % 10 == 0) {
         mCurrentFrame.read_detect_state_ = true;
-        for (int i = 0; i < mCurrentFrame.objects_cur_.size(); ++i) {
-            vector<double> box = mCurrentFrame.objects_cur_[i]->bounding_box_;
+        for (int i = 0; i < mCurrentFrame.objects_cur_detect_.size(); ++i) {
+            vector<double> box = mCurrentFrame.objects_cur_detect_[i]->bounding_box_;
             mCurrentFrame.tracking_object_box_.push_back(box);
+            mCurrentFrame.tracking_object_box_class_.push_back(mCurrentFrame.objects_cur_detect_[i]->class_id_);
         }
         for (int i = 0; i < mCurrentFrame.N; ++i) {
-            int box_id;
-            if (mCurrentFrame.IsInTrackBox(i, box_id)) {
-                mCurrentFrame.points_for_optical_flow.emplace(i, box_id);
+            int box_id, class_id;
+            if (mCurrentFrame.IsInTrackBox(i, box_id, class_id)) {
+                mCurrentFrame.points_for_optical_flow.emplace(i, make_pair(box_id, class_id));
             }
         }
         LK_tracker.Init(mCurrentFrame, mCurrentFrame.points_for_optical_flow);
@@ -1260,6 +1266,8 @@ void Tracking::UseOpticalFlowTrack() {
         int box_size = mLastFrame.tracking_object_box_.size();
         vector<vector<double>> tracking_object_box;
         tracking_object_box.resize(box_size);
+        vector<int> tracking_object_box_class;
+        tracking_object_box_class.resize(box_size);
         for (int j = 0; j < box_size; ++j) {
             if (!mCurrentFrame.valid_tracker_[j])
                 continue;
@@ -1281,19 +1289,27 @@ void Tracking::UseOpticalFlowTrack() {
             box_.push_back(top);
             box_.push_back(bottom);
             tracking_object_box[j] = box_;
+            tracking_object_box_class[j] = LK_tracker.box_class_[j];
         }
-        MultiScaleTemplateMatch(tracking_object_box);
+        MultiScaleTemplateMatch(tracking_object_box, tracking_object_box_class);
         //! 深度去除背景点进行光流跟踪，效果不太好
         // RemovePointsBackground();
 
         //! 用所有点进行光流跟踪
         for (int i = 0; i < mCurrentFrame.N; ++i) {
-            int box_id;
-            if (mCurrentFrame.IsInTrackBox(i, box_id)) {
-                mCurrentFrame.points_for_optical_flow.emplace(i, box_id);
+            int box_id, class_id;
+            if (mCurrentFrame.IsInTrackBox(i, box_id, class_id)) {
+                mCurrentFrame.points_for_optical_flow.emplace(i, make_pair(box_id, class_id));
             }
         }
         LK_tracker.Init(mCurrentFrame, mCurrentFrame.points_for_optical_flow);
+    }
+
+    for (int k = 0; k < mCurrentFrame.tracking_object_box_.size(); ++k) {
+        std::shared_ptr<Object> obj = make_shared<Object>();
+        obj->bounding_box_ = mCurrentFrame.tracking_object_box_[k];
+        obj->class_id_ = mCurrentFrame.tracking_object_box_class_[k];
+        mCurrentFrame.objects_cur_.push_back(obj);
     }
 }
 
@@ -1307,7 +1323,10 @@ bool Tracking::TrackWithMotionModel() {
     mCurrentFrame.SetPose(mVelocity*mLastFrame.mTcw);
     fill(mCurrentFrame.mvpMapPoints.begin(),mCurrentFrame.mvpMapPoints.end(),static_cast<MapPoint*>(NULL));
 
-    // Project points seen in previous frame
+    //! 光流跟踪
+    //! 如果这个函数放在SearchByProjection之前，就不可以使用深度聚类区分背景点和物体点
+    UseOpticalFlowTrack();
+
     int th;
     if (mSensor != System::STEREO)
         th = 15;
@@ -1322,8 +1341,7 @@ bool Tracking::TrackWithMotionModel() {
     }
     if(nmatches<20)
         return false;
-    //! 光流跟踪
-    UseOpticalFlowTrack();
+
     mCurrentFrame.GetFrameObject(mpMap);
     Optimizer::PoseOptimization(&mCurrentFrame);
     JudgeDynamicObject();

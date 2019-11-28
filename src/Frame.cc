@@ -47,9 +47,10 @@ namespace ORB_SLAM2 {
              mfScaleFactor(frame.mfScaleFactor), mfLogScaleFactor(frame.mfLogScaleFactor),
              mvScaleFactors(frame.mvScaleFactors), mvInvScaleFactors(frame.mvInvScaleFactors),
              mvLevelSigma2(frame.mvLevelSigma2), mvInvLevelSigma2(frame.mvInvLevelSigma2),
-             objects_cur_(frame.objects_cur_), tracking_object_box_(frame.tracking_object_box_),
-             mappoint_mapping_to_object_(frame.mappoint_mapping_to_object_ ), current_frame_image(frame.current_frame_image),
-             current_frame_image_log(frame.current_frame_image_log), read_detect_state_(frame.read_detect_state_){
+             objects_cur_detect_(frame.objects_cur_detect_), tracking_object_box_(frame.tracking_object_box_),
+             tracking_object_box_class_(frame.tracking_object_box_class_), mappoint_mapping_to_object_(frame.mappoint_mapping_to_object_ ),
+             current_frame_image(frame.current_frame_image), current_frame_image_log(frame.current_frame_image_log),
+             read_detect_state_(frame.read_detect_state_){
         for(int i=0; i<FRAME_GRID_COLS; i++)
             for(int j=0; j<FRAME_GRID_ROWS; j++)
                 mGrid[i][j] = frame.mGrid[i][j];
@@ -60,12 +61,12 @@ namespace ORB_SLAM2 {
     Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeStamp,
                  ORBextractor* extractorLeft, ORBextractor* extractorRight, ORBVocabulary* voc,
                  cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth,
-                 const vector<std::pair<vector<double>, unsigned int>>& bounding_box)
+                 const vector<std::pair<vector<double>, int>>& bounding_box)
             : mpORBvocabulary(voc),mpORBextractorLeft(extractorLeft),mpORBextractorRight(extractorRight),
               mTimeStamp(timeStamp), mK(K.clone()),mDistCoef(distCoef.clone()), mbf(bf), mThDepth(thDepth),
               mpReferenceKF(static_cast<KeyFrame*>(NULL)), current_frame_image(imLeft), read_detect_state_(false) {
         mnId=nNextId++;
-        // remove similar box
+        //! remove similar box
         for (int i = 0; i < bounding_box.size(); ++i) {
             bool single = true;
             for (int j = i + 1; j < bounding_box.size(); ++j) {
@@ -82,7 +83,7 @@ namespace ORB_SLAM2 {
                 std::shared_ptr<Object> obj = make_shared<Object>();
                 obj->bounding_box_ = bounding_box[i].first;
                 obj->class_id_ = bounding_box[i].second;
-                objects_cur_.push_back(obj);
+                objects_cur_detect_.push_back(obj);
             }
         }
 
@@ -737,7 +738,7 @@ namespace ORB_SLAM2 {
     void Frame::ComputeCentroid2D(const int& i, cv::Mat& centroid,
                                   map<size_t, double>& mappoints_distance_to_center_map) {
         int points_compute_center_num = 0;
-        vector<double> bbox = objects_cur_[i]->bounding_box_;
+        vector<double> bbox = objects_cur_detect_[i]->bounding_box_;
         double box_width = bbox[1] - bbox[0];
         double box_height = bbox[3] - bbox[2];
         bool compute_center = true;
@@ -788,7 +789,7 @@ namespace ORB_SLAM2 {
                 return v1.first < v2.first;
             }
         };
-        vector<double> bbox = objects_cur_[i]->bounding_box_;
+        vector<double> bbox = objects_cur_detect_[i]->bounding_box_;
         double box_center_x = 0.5 * (bbox[1] + bbox[0]);
         double box_center_y = 0.5 * (bbox[3] + bbox[2]);
         cv::Point2f center_point(box_center_x, box_center_y);
@@ -929,8 +930,8 @@ namespace ORB_SLAM2 {
     }
 
     void Frame::ComputeBoxCenter(vector<cv::Point2f>& box_center_vec) {
-        for (int i = 0; i < objects_cur_.size(); ++i) {
-            vector<double> box = objects_cur_[i]->bounding_box_;
+        for (int i = 0; i < objects_cur_detect_.size(); ++i) {
+            vector<double> box = objects_cur_detect_[i]->bounding_box_;
             double left = box[0];
             double right = box[1];
             double top = box[2];
@@ -945,8 +946,8 @@ namespace ORB_SLAM2 {
         float kp_u  = kp.pt.x;
         float kp_v = kp.pt.y;
         bool in_box = false;
-        for (int k = 0; k < objects_cur_.size(); ++k) {
-            vector<double> box = objects_cur_[k]->bounding_box_;
+        for (int k = 0; k < objects_cur_detect_.size(); ++k) {
+            vector<double> box = objects_cur_detect_[k]->bounding_box_;
             double left = box[0];
             double right = box[1];
             double top = box[2];
@@ -961,7 +962,7 @@ namespace ORB_SLAM2 {
         return in_box;
     }
 
-    bool Frame::IsInTrackBox(const int& i, int& box_id) {
+    bool Frame::IsInTrackBox(const int& i, int& box_id, int& class_id) {
         const cv::KeyPoint& kp = mvKeysUn[i];
         float kp_u  = kp.pt.x;
         float kp_v = kp.pt.y;
@@ -976,6 +977,7 @@ namespace ORB_SLAM2 {
                 && kp_v > top - 2 && kp_v < bottom + 2) {
                 in_box = true;
                 box_id = k;
+                class_id = tracking_object_box_class_[k];
                 break;
             }
         }

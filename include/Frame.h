@@ -52,7 +52,7 @@ public:
     Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeStamp,
           ORBextractor* extractorLeft, ORBextractor* extractorRight, ORBVocabulary* voc,
           cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth,
-          const vector<std::pair<vector<double>, unsigned int>>& bounding_box);
+          const vector<std::pair<vector<double>, int>>& bounding_box);
 
     // Constructor for RGB-D cameras.
     Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeStamp, ORBextractor* extractor,
@@ -110,7 +110,7 @@ public:
     bool IsInDynamicBox(const int& i);
     void ComputeBoxCenter(vector<cv::Point2f>& box_center_vec);
     bool IsInBox(const int& i, int& box_id);
-    bool IsInTrackBox(const int& i, int& box_id);
+    bool IsInTrackBox(const int& i, int& box_id, int& class_id);
     bool DrawBox(const vector<bool>& is_dynamic, cv::Mat& image);
     bool DrawBoxPredict(const vector<cv::Point2f>& box_center);
     cv::Mat GetMtw() { return mtcw; }
@@ -132,18 +132,20 @@ public:
     bool read_detect_state_;
     cv::Mat optical_flow_image_;
     vector<cv::Point2f> predict_box_center_vec;
-    map<int, int> points_for_optical_flow;
+    map<int, std::pair<int, int>> points_for_optical_flow;
     map<int, int> points_optical_flow_succes;
     map<int, int> matches_out_box;
     map<int, std::pair<int, int>> matches_in_box;
     vector<vector<int>> points_in_box;
     //! vector num = objects
     vector<vector<double>> tracking_object_box_;
+    vector<int> tracking_object_box_class_;
     vector<bool> valid_tracker_;
     vector<cv::Point2f> tracking_object_motion_;
     vector<vector<std::pair<cv::Point2f, cv::Point2f>>> optical_flow_points_pairs_;
     vector<std::pair<cv::Point2f, cv::Point2f>> optical_flow_points_pairs_filter_;
     //!
+    vector<std::shared_ptr<Object>> objects_cur_detect_;
     vector<std::shared_ptr<Object>> objects_cur_;
     cv::Mat current_frame_image, current_frame_image_log;
     map<unsigned int, unsigned int> mappoint_mapping_to_object_;

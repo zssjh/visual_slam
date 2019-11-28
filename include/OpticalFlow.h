@@ -14,7 +14,7 @@ namespace ORB_SLAM2 {
 class OpticalFlow{
 public:
     OpticalFlow(){ init_ = true;}
-    void Init(const Frame& LastFrame, const map<int, int>& points_and_box_id);
+    void Init(const Frame& LastFrame, const map<int, std::pair<int, int>>& points_and_box_id);
     double ComputeDistance(const cv::Point2f &pt1, const cv::Point2f &pt2);
     void SetPrediction(const int& id);
     void TrackImage();
@@ -28,6 +28,7 @@ public:
     Frame LastFrame_, CurrentFrame_;
     vector<vector<cv::Point2f>> prev_pts_, cur_pts_, predict_pts_;
     vector<cv::Point2f> box_center_motion;
+    vector<int> box_class_;
     vector<bool> valid_tracker_;
     bool hasPrediction_, flowBack_;
     vector<vector<std::pair<cv::Point2f, cv::Point2f>>> optical_flow_points_pairs_;
