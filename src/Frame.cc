@@ -49,7 +49,7 @@ namespace ORB_SLAM2 {
              mvLevelSigma2(frame.mvLevelSigma2), mvInvLevelSigma2(frame.mvInvLevelSigma2),
              objects_cur_(frame.objects_cur_), tracking_object_box_(frame.tracking_object_box_),
              mappoint_mapping_to_object_(frame.mappoint_mapping_to_object_ ), current_frame_image(frame.current_frame_image),
-             read_detect_state_(frame.read_detect_state_), optical_flow_image_(frame.optical_flow_image_){
+             current_frame_image_log(frame.current_frame_image_log), read_detect_state_(frame.read_detect_state_){
         for(int i=0; i<FRAME_GRID_COLS; i++)
             for(int j=0; j<FRAME_GRID_ROWS; j++)
                 mGrid[i][j] = frame.mGrid[i][j];
@@ -85,6 +85,20 @@ namespace ORB_SLAM2 {
                 objects_cur_.push_back(obj);
             }
         }
+
+        //! 用于模板匹配的图像的对数转换：current_frame_image_log，效果不好
+        current_frame_image_log = cv::Mat::zeros(imLeft.size(), imLeft.type());
+        double gray;
+        double c = 1.;
+        for (int i = 0; i < imLeft.rows; i++) {
+            for (int j = 0; j < imLeft.cols; j++) {
+                gray = (double)imLeft.at<uchar>(i, j);
+                gray = c * log((double)(1 + gray));
+                current_frame_image_log.at<uchar>(i, j) = cv::saturate_cast<uchar>(gray);
+            }
+        }
+        cv::normalize(current_frame_image_log, current_frame_image_log, 0, 255, cv::NORM_MINMAX);
+        cv::convertScaleAbs(current_frame_image_log, current_frame_image_log);
 
         // Scale Level Info
         mnScaleLevels = mpORBextractorLeft->GetLevels();
@@ -834,13 +848,6 @@ namespace ORB_SLAM2 {
             }
         }
         return true;
-        /*
-        cv::Mat image_cur = current_frame_image.clone();
-        cv::cvtColor(image_cur, image_cur,  cv::COLOR_GRAY2RGB);
-        cv::circle(image_cur, mvKeysUn[center_point_index].pt, 3, cv::Scalar(0, 255, 0));
-        cv::imshow("center", image_cur);
-        cv::waitKey(0);
-        */
     }
 
     void Frame::GetFrameObject(Map* mpMap) {
@@ -884,7 +891,7 @@ namespace ORB_SLAM2 {
                         continue;
                     } else {
                         repeat_object_num++;
-                        /*
+                        /* 融合地图点
                         bool new_mappoint = true;
                         for (int j = 0; j < objects_cur_[k]->MapPonits.size(); ++j) {
                             cv::Mat pos_cur = objects_cur_[k]->MapPonits[j]->GetWorldPos();

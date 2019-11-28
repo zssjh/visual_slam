@@ -130,17 +130,22 @@ public:
 
 public:
     bool read_detect_state_;
+    cv::Mat optical_flow_image_;
     vector<cv::Point2f> predict_box_center_vec;
     map<int, int> points_for_optical_flow;
     map<int, int> points_optical_flow_succes;
     map<int, int> matches_out_box;
     map<int, std::pair<int, int>> matches_in_box;
     vector<vector<int>> points_in_box;
+    //! vector num = objects
     vector<vector<double>> tracking_object_box_;
+    vector<bool> valid_tracker_;
     vector<cv::Point2f> tracking_object_motion_;
+    vector<vector<std::pair<cv::Point2f, cv::Point2f>>> optical_flow_points_pairs_;
+    vector<std::pair<cv::Point2f, cv::Point2f>> optical_flow_points_pairs_filter_;
+    //!
     vector<std::shared_ptr<Object>> objects_cur_;
-    cv::Mat current_frame_image;
-    cv::Mat optical_flow_image_;
+    cv::Mat current_frame_image, current_frame_image_log;
     map<unsigned int, unsigned int> mappoint_mapping_to_object_;
 
     // Vocabulary used for relocalization.

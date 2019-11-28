@@ -22,14 +22,15 @@ public:
     void AvgPoint(const int& n, cv::Point2f& p);
 
 public:
-    cv::Mat optical_image_;
     bool init_;
     unsigned int points_size;
     unsigned int object_size;
     Frame LastFrame_, CurrentFrame_;
     vector<vector<cv::Point2f>> prev_pts_, cur_pts_, predict_pts_;
     vector<cv::Point2f> box_center_motion;
+    vector<bool> valid_tracker_;
     bool hasPrediction_, flowBack_;
+    vector<vector<std::pair<cv::Point2f, cv::Point2f>>> optical_flow_points_pairs_;
 };
 
 }
