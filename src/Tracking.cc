@@ -197,17 +197,18 @@ cv::Mat Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat &imRe
 
     cout << "ID:" << mCurrentFrame.mnId << endl;
     Track();
-    /*
+
     cout << "当前帧物体：" << mCurrentFrame.objects_cur_.size() << endl;
     for (int i = 0; i < mCurrentFrame.objects_cur_.size(); ++i) {
-        cout << mCurrentFrame.objects_cur_[i]->mnId_ << endl;
+         if (mCurrentFrame.objects_cur_[i]->mnId_ != -1)
+             cout << mCurrentFrame.objects_cur_[i]->mnId_ << endl;
     }
 
     cout << "地图中物体：" << mpMap->objects_in_map_.size() << endl;
     for (int j = 0; j < mpMap->objects_in_map_.size(); ++j) {
         if (mpMap->objects_in_map_[j])
             cout << mpMap->objects_in_map_[j]->mnId_ << endl;
-    }*/
+    }
     return mCurrentFrame.mTcw.clone();
 }
 
@@ -1005,7 +1006,7 @@ void Tracking::JudgeDynamicObject(){
         cv::circle(outImg, cv::Point2f(u_val, image_cur.rows + v_val), 5, cv::Scalar(0, 200, 255), -1);
     }
     cv::imshow("current frame", image_cur);
-    cv::waitKey(1e3 / 30);//1e3 / 30
+    cv::waitKey(0);//1e3 / 30
 }
 
 bool CropImage(const int& width, const int& height, cv::Rect2d& box) {
@@ -1055,7 +1056,8 @@ bool CropImageAndTemplate(const int& width, const int& height, cv::Rect2d& box, 
         return (box_valid && box_template_valid);
     }
 
-void Tracking::MultiScaleTemplateMatch(const vector<vector<double>>& tracking_object_box, const vector<int>& tracking_object_box_class) {
+void Tracking::MultiScaleTemplateMatch(const vector<vector<double>>& tracking_object_box,
+        const vector<int>& tracking_object_box_class) {
     cv::Mat image_last = mLastFrame.current_frame_image.clone();
     cv::Mat image_cur = mCurrentFrame.current_frame_image.clone();
     cv::cvtColor(image_last, image_last,  cv::COLOR_GRAY2RGB);
@@ -1111,7 +1113,6 @@ void Tracking::MultiScaleTemplateMatch(const vector<vector<double>>& tracking_ob
             cv::Mat dstImg;
             if (image_search_scale.rows < image_template.rows || image_search_scale.cols < image_template.cols)
                 continue;
-            cout << image_search_scale.cols << " " << image_search_scale.rows << ":" << image_template.cols << " " << image_template.rows << endl;
             cv::matchTemplate(image_search_scale, image_template, dstImg, 3);
             cv::Point minPoint, maxPoint;
             double minVal = 0;
@@ -1159,7 +1160,7 @@ void Tracking::MultiScaleTemplateMatch(const vector<vector<double>>& tracking_ob
     }
 }
 
-struct  MapPointDepthCompare {
+struct MapPointDepthCompare {
     bool operator() (const std::pair<float, int>& v1, const std::pair<float, int>& v2) const {
         return v1.first < v2.first;
     }
@@ -1322,11 +1323,9 @@ bool Tracking::TrackWithMotionModel() {
 
     mCurrentFrame.SetPose(mVelocity*mLastFrame.mTcw);
     fill(mCurrentFrame.mvpMapPoints.begin(),mCurrentFrame.mvpMapPoints.end(),static_cast<MapPoint*>(NULL));
-
     //! 光流跟踪
     //! 如果这个函数放在SearchByProjection之前，就不可以使用深度聚类区分背景点和物体点
     UseOpticalFlowTrack();
-
     int th;
     if (mSensor != System::STEREO)
         th = 15;

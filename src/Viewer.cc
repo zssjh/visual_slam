@@ -124,7 +124,7 @@ void Viewer::Run()
             mpMapDrawer->DrawKeyFrames(menuShowKeyFrames,menuShowGraph);
         if(menuShowPoints) {
 //            mpMapDrawer->DrawMapPoints();
-            //mpMapDrawer->DrawObjectMapPoints();
+            mpMapDrawer->DrawObjectMapPoints();
             mpMapDrawer->DrawLineBetweenObjects(Twc);
         }
         pangolin::FinishFrame();

@@ -47,7 +47,7 @@ namespace ORB_SLAM2 {
              mfScaleFactor(frame.mfScaleFactor), mfLogScaleFactor(frame.mfLogScaleFactor),
              mvScaleFactors(frame.mvScaleFactors), mvInvScaleFactors(frame.mvInvScaleFactors),
              mvLevelSigma2(frame.mvLevelSigma2), mvInvLevelSigma2(frame.mvInvLevelSigma2),
-             objects_cur_detect_(frame.objects_cur_detect_), tracking_object_box_(frame.tracking_object_box_),
+             objects_cur_detect_(frame.objects_cur_detect_), objects_cur_(frame.objects_cur_), tracking_object_box_(frame.tracking_object_box_),
              tracking_object_box_class_(frame.tracking_object_box_class_), mappoint_mapping_to_object_(frame.mappoint_mapping_to_object_ ),
              current_frame_image(frame.current_frame_image), current_frame_image_log(frame.current_frame_image_log),
              read_detect_state_(frame.read_detect_state_){
@@ -782,14 +782,16 @@ namespace ORB_SLAM2 {
         }
     }
 
+    struct  MapPointDepthCompare {
+        bool operator() (const std::pair<float, int>& v1, const std::pair<float, int>& v2) const {
+            return v1.first < v2.first;
+        }
+    };
+
     bool Frame::ComputeCentroidByDepth(const int& i, cv::Mat& centroid,
                                        map<size_t, double>& mappoints_distance_to_center_map) {
-        struct  MapPointDepthCompare {
-            bool operator() (const std::pair<float, int>& v1, const std::pair<float, int>& v2) const {
-                return v1.first < v2.first;
-            }
-        };
-        vector<double> bbox = objects_cur_detect_[i]->bounding_box_;
+
+        vector<double> bbox = objects_cur_[i]->bounding_box_;
         double box_center_x = 0.5 * (bbox[1] + bbox[0]);
         double box_center_y = 0.5 * (bbox[3] + bbox[2]);
         cv::Point2f center_point(box_center_x, box_center_y);
@@ -817,7 +819,6 @@ namespace ORB_SLAM2 {
         for (auto iter = mappoints.begin();  iter != mappoints.end(); ++iter) {
             if (count >= start_index && count <= end_index) {
                 center_index.push_back(iter->second);
-
             } else if (count > end_index) {
                 break;
             }
@@ -875,11 +876,12 @@ namespace ORB_SLAM2 {
             int same_class_num = 0;
             int repeat_object_num = 0;
             bool continue_to_find = true;
-            for (int i = mpMap->objects_in_map_.size() - 1; (i >= 0) && (continue_to_find == true); i--) {
+            for (int i = mpMap->objects_in_map_.size() - 1; (i >= 0) && continue_to_find; i--) {
                 if (mpMap->objects_in_map_[i] == NULL)
                     continue;
                 if (mpMap->objects_in_map_[i]->Pos_.empty())
                     continue;
+
                 if (objects_cur_[k]->class_id_ == mpMap->objects_in_map_[i]->class_id_) {
                     same_class_num++;
                     float x = object_pos.at<float>(0, 0) -
@@ -888,9 +890,12 @@ namespace ORB_SLAM2 {
                               mpMap->objects_in_map_[i]->Pos_.at<float>(1, 0);
                     float z = object_pos.at<float>(2, 0) -
                               mpMap->objects_in_map_[i]->Pos_.at<float>(2, 0);
-                    if (sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2)) > 10) {
+                    float distance = sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2));
+                    if (distance > 10) {
+                        cout << "far: " << objects_cur_[k]->mnId_  << " " << mpMap->objects_in_map_[i]->mnId_ << " " << distance << endl;
                         continue;
                     } else {
+                        cout << "repeat: " << objects_cur_[k]->mnId_  << " " << mpMap->objects_in_map_[i]->mnId_ << " " << distance << endl;
                         repeat_object_num++;
                         /* 融合地图点
                         bool new_mappoint = true;
@@ -946,8 +951,8 @@ namespace ORB_SLAM2 {
         float kp_u  = kp.pt.x;
         float kp_v = kp.pt.y;
         bool in_box = false;
-        for (int k = 0; k < objects_cur_detect_.size(); ++k) {
-            vector<double> box = objects_cur_detect_[k]->bounding_box_;
+        for (int k = 0; k < objects_cur_.size(); ++k) {
+            vector<double> box = objects_cur_[k]->bounding_box_;
             double left = box[0];
             double right = box[1];
             double top = box[2];
