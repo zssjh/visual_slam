@@ -884,11 +884,9 @@ void Tracking::JudgeDynamicObject(){
     vector<cv::KeyPoint> last_frame_points_out_box;
     vector<cv::KeyPoint> cur_frame_points_out_box;
     vector<cv::Point2f> last_frame_points_out_box_for_draw;
-
     for (auto it = mCurrentFrame.matches_out_box.begin();  it != mCurrentFrame.matches_out_box.end(); ++it) {
         last_frame_points.push_back(mLastFrame.mvKeysUn[it->second]);
         cur_frame_points.push_back(mCurrentFrame.mvKeysUn[it->first]);
-
         last_frame_points_out_box.push_back(mLastFrame.mvKeysUn[it->second]);
         last_frame_points_out_box_for_draw.push_back(mLastFrame.mvKeysUn[it->second].pt);
         cur_frame_points_out_box.push_back(mCurrentFrame.mvKeysUn[it->first]);
@@ -910,21 +908,18 @@ void Tracking::JudgeDynamicObject(){
             point_in_box_id.push_back(it->second.second);
             points_in_box_filtered[it->second.second]++;
         } else {
-//            cv::circle(image_cur, mCurrentFrame.mvKeysUn[it->first].pt, 3, cv::Scalar(255, 0, 0), -1);
-//            string depth_str = Convert(mCurrentFrame.mvpMapPoints[it->first]->GetWorldPos().at<float>(2));
-//            cv::putText(image_cur, depth_str, mCurrentFrame.mvKeysUn[it->first].pt, cv::FONT_HERSHEY_PLAIN, 1, cv::Scalar(255, 0, 255));
             last_frame_points_out_box.push_back(mLastFrame.mvKeysUn[it->second.first]);
             last_frame_points_out_box_for_draw.push_back(mLastFrame.mvKeysUn[it->second.first].pt);
             cur_frame_points_out_box.push_back(mCurrentFrame.mvKeysUn[it->first]);
         }
     }
 
+    //! 计算基础矩阵，验证对极约束
     vector<bool> vbMatchesInliers, vbMatchesInliers_in_box;
     cv::Mat F21;
     vector<int> dynamic_points_in_box;
     dynamic_points_in_box.resize(object_cur);
     vector<bool> is_dynamic_box(object_cur, false);
-
     std::vector<cv::Vec<float, 3>> epilines2;
     int outlier_tmp = 0;
     if (last_frame_points.size() > 8) {
@@ -937,14 +932,12 @@ void Tracking::JudgeDynamicObject(){
                     outlier_tmp++;
                     int dynamic_box_id = point_in_box_id[k];
                     dynamic_points_in_box[dynamic_box_id]++;
-//                    cv::line(image_cur, cv::Point2f(0, -epilines2[k][2] / epilines2[k][1]),
-//                             cv::Point2f(image_cur.cols, -(epilines2[k][2] + epilines2[k][0] * image_cur.cols) / epilines2[k][1]),
-//                             cv::Scalar(255, 0, 0));
                 }
             }
         }
     }
-    //! judge if or not a dynamic object
+
+    //! 判断是否是动态物体
     for (int l = 0; l < object_cur; ++l) {
         float points_num = points_in_box_filtered[l];
         float dynamic_points_num = dynamic_points_in_box[l];
@@ -965,7 +958,7 @@ void Tracking::JudgeDynamicObject(){
     image_last.copyTo(outImg.rowRange(0, h));
     image_cur.copyTo(outImg.rowRange(h + 1, outImg.rows));
 
-    //! draw match lines and epiloar lines
+    //! 画特征点匹配线和极线
     cv::Scalar point_and_line_color;
     /* for (int kk = 0; kk < cur_frame_points_out_box.size(); ++kk) {
              if (vbMatchesInliers[kk]) {
@@ -1006,7 +999,7 @@ void Tracking::JudgeDynamicObject(){
         cv::circle(outImg, cv::Point2f(u_val, image_cur.rows + v_val), 5, cv::Scalar(0, 200, 255), -1);
     }
     cv::imshow("current frame", image_cur);
-    cv::waitKey(0);//1e3 / 30
+    cv::waitKey(1e3 / 30);//1e3 / 30
 }
 
 bool CropImage(const int& width, const int& height, cv::Rect2d& box) {
@@ -1076,7 +1069,8 @@ void Tracking::MultiScaleTemplateMatch(const vector<vector<double>>& tracking_ob
         double width = right - left;
         double height = bottom - top;
         cv::Rect2d rect_predict(left, top, width, height);
-        if (mCurrentFrame.mnId > 11110) {
+        /*
+        if (mCurrentFrame.mnId > 110) {
             if (rect_predict.x > 0 && rect_predict.y > 0 &&
                 rect_predict.x + rect_predict.width < mLastFrame.current_frame_image.cols &&
                 rect_predict.y + rect_predict.height < mLastFrame.current_frame_image.rows) {
@@ -1089,7 +1083,8 @@ void Tracking::MultiScaleTemplateMatch(const vector<vector<double>>& tracking_ob
                 cv::Mat image_template1 = image_last(rect_template);
                 cv::imshow("temp1", image_template1);
             }
-        }
+        }*/
+
         //! 如果预测框超出图像边界，同等裁剪模板
         if (!CropImageAndTemplate(mLastFrame.current_frame_image.cols, mLastFrame.current_frame_image.rows, rect_predict, rect_template))
             continue;
@@ -1113,6 +1108,7 @@ void Tracking::MultiScaleTemplateMatch(const vector<vector<double>>& tracking_ob
             cv::Mat dstImg;
             if (image_search_scale.rows < image_template.rows || image_search_scale.cols < image_template.cols)
                 continue;
+            cout << image_search_scale.rows << " " << image_template.rows << " " << image_search_scale.cols << " " << image_template.cols << endl;
             cv::matchTemplate(image_search_scale, image_template, dstImg, 3);
             cv::Point minPoint, maxPoint;
             double minVal = 0;
@@ -1128,11 +1124,13 @@ void Tracking::MultiScaleTemplateMatch(const vector<vector<double>>& tracking_ob
 
         if (maxScore < 0.87)
             continue;
-        if (mCurrentFrame.mnId > 11110) {
+        /*
+        if (mCurrentFrame.mnId > 110) {
             cv::imshow("temp", image_template);
             cv::imshow("search", image_search);
             cv::waitKey(0);
-        }
+        }*/
+
         //! 在缩放后的图像上显示box
         cv::Point2f box_left_top(bestVal.x / bestScale, bestVal.y / bestScale);
         double width_scale = image_template.cols / bestScale;

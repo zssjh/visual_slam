@@ -891,11 +891,9 @@ namespace ORB_SLAM2 {
                     float z = object_pos.at<float>(2, 0) -
                               mpMap->objects_in_map_[i]->Pos_.at<float>(2, 0);
                     float distance = sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2));
-                    if (distance > 10) {
-                        cout << "far: " << objects_cur_[k]->mnId_  << " " << mpMap->objects_in_map_[i]->mnId_ << " " << distance << endl;
+                    if (distance > 8) {
                         continue;
                     } else {
-                        cout << "repeat: " << objects_cur_[k]->mnId_  << " " << mpMap->objects_in_map_[i]->mnId_ << " " << distance << endl;
                         repeat_object_num++;
                         /* 融合地图点
                         bool new_mappoint = true;
@@ -1005,17 +1003,18 @@ namespace ORB_SLAM2 {
             cv::putText(image, mnid_str, cv::Point2f(left + 8, top - 5), cv::FONT_HERSHEY_PLAIN, 1, cv::Scalar(0, 0, 0));
             if (is_dynamic[j]) {
                 objects_cur_[j]->dynamic_ = true;
-//                cv::rectangle(image, p1, p2, cv::Scalar(0, 0, 255));
+                cv::rectangle(image, p1, p2, cv::Scalar(0, 0, 255));
             } else {
-//                cv::rectangle(image, p1, p2, cv::Scalar(0, 255, 0));
+                cv::rectangle(image, p1, p2, cv::Scalar(0, 255, 0));
             }
         }
+        /*
         for (int i = 0; i < tracking_object_box_.size(); ++i) {
             vector<double> box = tracking_object_box_[i];
             cv::Point2f p1(box[0], box[2]);
             cv::Point2f p2(box[1], box[3]);
             cv::rectangle(image, p1, p2, cv::Scalar(0, 255, 0));
-        }
+        }*/
     }
 
 } //namespace ORB_SLAM
